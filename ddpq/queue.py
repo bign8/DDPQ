@@ -1,4 +1,4 @@
-import sys, array, tempfile, heapq, pickle, threading
+import tempfile, heapq, pickle, threading
 
 
 DELTA = 900
@@ -111,18 +111,21 @@ class DiskDeferredPriorityQueue:
 
     def _spool_iter_to_file(self, data_iter):
         self._best_stored_item = float("inf")
-        def store_best(first):
-            self._best_stored_item = first
-            store_best = lambda _: None
+        result, buffer = None, []
 
-        buffer = []
-        result = tempfile.TemporaryFile()
+        try:
+            peek = data_iter.next()
+            buffer.append(peek)
+            self._best_stored_item = peek[0]
+            result = tempfile.TemporaryFile()
+        except StopIteration:
+            return None
+
         for x in data_iter:
-            store_best(x[0])
             buffer.append(pickle.dumps(x))
             if len(buffer) >= TARGET:
                 result.write(''.join(buffer))
                 del buffer[:]
         if buffer:
             result.write(''.join(buffer))
-        return result if result.tell() else None
+        return result
