@@ -1,4 +1,4 @@
-# DDPQ
+# DDPQ [![Build Status](https://travis-ci.org/bign8/DDPQ.svg?branch=master)](https://travis-ci.org/bign8/DDPQ)
 Disk Deferred Priority Queue in Python
 
 ## Reasons
