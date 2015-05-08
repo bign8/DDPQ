@@ -19,8 +19,10 @@ def _data_from_file(f):
 class DiskDeferredPriorityQueue:
     def __init__(self, queue=[]):
         self._queue = queue[:]
+        self._latent_queue = []
         heapq.heapify(self._queue)
         self._size = 0
+        self._best_stored_item = float("inf")
         self._queue_lock = threading.RLock()
         self._file = None
         self._check(len(self._queue))
@@ -30,7 +32,10 @@ class DiskDeferredPriorityQueue:
 
     def push(self, key, item):
         self._queue_lock.acquire()
-        heapq.heappush(self._queue, (key, item))
+        if key < self._best_stored_item:
+            heapq.heappush(self._queue, (key, item))
+        else:
+            heapq.heappush(self._latent_queue, (key, item))
         self._check(1)
         self._queue_lock.release()
 
@@ -49,8 +54,10 @@ class DiskDeferredPriorityQueue:
     def clear(self):
         self._queue_lock.acquire()
         self._size = 0
+        self._best_stored_item = float("inf")
         self._file = None
         self._queue = []
+        self._latent_queue = []
         self._queue_lock.release()
 
     def _check(self, delta):
@@ -59,6 +66,8 @@ class DiskDeferredPriorityQueue:
         mem_size = len(self._queue)
         if mem_size > TARGET + DELTA:
             self._purge()
+        elif len(self._latent_queue) > TARGET:
+            self._latent_purge()
         elif mem_size < (TARGET - DELTA) and self._file:
             self._marshal()
         self._queue_lock.release()
@@ -70,13 +79,23 @@ class DiskDeferredPriorityQueue:
         self._queue_lock.release()
 
         # File access (threaded out?)
-        data_iter = heapq.merge(_data_from_file(self._file), to_store)
+        data_iter = heapq.merge(_data_from_file(self._file), to_store, self._latent_queue)
         self._file = self._spool_iter_to_file(data_iter)
+        self._latent_queue = []
+
+    def _latent_purge(self):
+        # File access (threaded out?)
+        data_iter = heapq.merge(_data_from_file(self._file), self._latent_queue)
+        self._file = self._spool_iter_to_file(data_iter)
+
+        self._queue_lock.acquire()
+        self._latent_queue = []
+        self._queue_lock.release()
 
     def _marshal(self):
         # File access (threaded out?)
         disk_data = []
-        file_iter = _data_from_file(self._file)
+        file_iter = heapq.merge(_data_from_file(self._file), self._latent_queue)
         try:
             for _ in xrange(TARGET):
                 disk_data.append(file_iter.next())
@@ -86,13 +105,20 @@ class DiskDeferredPriorityQueue:
         # END file access
 
         self._queue_lock.acquire()
-        self._queue = heapq.merge(self._queue, disk_data)
+        self._queue = list(heapq.merge(self._queue, disk_data))
+        self._latent_queue = []
         self._queue_lock.release()
 
-    def _spool_iter_to_file(data_iter):
+    def _spool_iter_to_file(self, data_iter):
+        self._best_stored_item = float("inf")
+        def store_best(first):
+            self._best_stored_item = first
+            store_best = lambda _: None
+
         buffer = []
         result = tempfile.TemporaryFile()
         for x in data_iter:
+            store_best(x[0])
             buffer.append(pickle.dumps(x))
             if len(buffer) >= TARGET:
                 result.write(''.join(buffer))
