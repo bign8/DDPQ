@@ -2,7 +2,7 @@ import sys, array, tempfile, heapq, pickle, threading
 from itertools import chain
 
 
-PURGE = 10000
+PURGE = 2000
 TARGET = 1000
 MARSHAL = 100
 
