@@ -2,9 +2,8 @@ import sys, array, tempfile, heapq, pickle, threading
 from itertools import chain
 
 
-PURGE = 1900
+DELTA = 900
 TARGET = 1000
-MARSHAL = 100
 
 
 def _data_from_file(f):
@@ -24,7 +23,6 @@ class DiskDeferredPriorityQueue:
         heapq.heapify(self._queue)
         self._size = 0
         self._mem_size = 0
-        self._empty_file = True
         self._queue_lock = threading.RLock()
         self._file = None
         self._check(len(self._queue))
@@ -52,7 +50,6 @@ class DiskDeferredPriorityQueue:
 
     def clear(self):
         self._queue_lock.acquire()
-        self._empty_file = True
         self._size = 0
         self._mem_size = 0
         self._file = None
@@ -63,9 +60,9 @@ class DiskDeferredPriorityQueue:
         self._queue_lock.acquire()
         self._size += delta
         self._mem_size += delta
-        if self._mem_size > PURGE:
+        if self._mem_size > TARGET + DELTA:
             self._purge()
-        elif self._mem_size < MARSHAL and self._file:
+        elif self._mem_size < (TARGET - DELTA) and self._file:
             self._marshal()
         self._queue_lock.release()
 
@@ -76,7 +73,6 @@ class DiskDeferredPriorityQueue:
         self._queue_lock.release()
 
         # File access (threaded out?)
-        self._empty_file = False
         data_iter = heapq.merge(_data_from_file(self._file), to_store)
         self._file = self._spool_iter_to_file(data_iter)
 
@@ -91,7 +87,7 @@ class DiskDeferredPriorityQueue:
             test = file_iter.next()
             file_iter = chain([test], file_iter)
         except StopIteration:
-            self._empty_file = True
+            pass
         self._file = self._spool_iter_to_file(file_iter)
         # END file access
 
