@@ -8,6 +8,8 @@ MARSHAL = 100
 
 
 def _data_from_file(f):
+    if not f:
+        raise StopIteration
     f.seek(0)
     try:
         while True:
@@ -24,7 +26,7 @@ class DiskDeferredPriorityQueue:
         self._mem_size = 0
         self._empty_file = True
         self._queue_lock = threading.RLock()
-        self._file = tempfile.TemporaryFile()
+        self._file = None
         self._check(len(self._queue))
 
     def __len__(self):
@@ -53,7 +55,7 @@ class DiskDeferredPriorityQueue:
         self._empty_file = True
         self._size = 0
         self._mem_size = 0
-        self._file = tempfile.TemporaryFile()
+        self._file = None
         self._queue = []
         self._queue_lock.release()
 
@@ -63,7 +65,7 @@ class DiskDeferredPriorityQueue:
         self._mem_size += delta
         if self._mem_size > PURGE:
             self._purge()
-        elif self._mem_size < MARSHAL and not self._empty_file:
+        elif self._mem_size < MARSHAL and self._file:
             self._marshal()
         self._queue_lock.release()
 
@@ -107,4 +109,4 @@ class DiskDeferredPriorityQueue:
                 del buffer[:]
         if buffer:
             result.write(''.join(buffer))
-        return result
+        return result if result.tell() else None
