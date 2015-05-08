@@ -12,3 +12,6 @@ http://stackoverflow.com/a/3954627/3220865
 - Make thread safe
 - Use separate threads for reading and writing from file (as to not block)
 """
+
+from ddpq.queue import DiskDeferredPriorityQueue
+DDPQ = DiskDeferredPriorityQueue
