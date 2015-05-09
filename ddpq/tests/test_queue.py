@@ -37,15 +37,16 @@ def test_priority_dynamic():
     def test(i):
         x = DDPQ()
         # Generate
-        for j in xrange(int(random() * 1000 + 500)):
+        for j in xrange(int(2000)):
             x.push(random(), 'Item {}'.format(j))
-        # Log
-        print x._queue
         # Verify
-        last = x.pop()
+        last, count = x.pop(), 0
         while len(x):
-            assert last[0] < x.peek()[0]
+            assert last[0] < x.peek()[0], '{}: {} >= {}'.format(
+                count, last[0], x.peek()[0]
+            )
             last = x.pop()
+            count += 1
 
     for i in xrange(10):
         yield test, i
