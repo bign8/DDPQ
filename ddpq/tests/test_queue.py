@@ -37,7 +37,7 @@ def test_priority_dynamic():
     def test(i):
         x = DDPQ()
         # Generate
-        for j in xrange(int(2000)):
+        for j in xrange(int(4000)):
             x.push(random(), 'Item {}'.format(j))
         # Verify
         last, count = x.pop(), 0
